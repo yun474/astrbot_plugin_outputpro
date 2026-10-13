@@ -1,16 +1,13 @@
 # config.py
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping, MutableMapping
-from pathlib import Path
 from types import MappingProxyType, UnionType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
-from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 
 class ConfigNode:
@@ -107,175 +104,29 @@ class ConfigNode:
 # ============ 插件自定义配置 ==================
 
 
-class PipelineConfig(ConfigNode):
-    lock_order: bool
-    steps: list[str]
-    llm_steps: list[str]
-
-    def __init__(self, data: MutableMapping[str, Any]):
-        super().__init__(data)
-        self._steps = [name.split("(", 1)[0].strip() for name in self.steps]
-        self._llm_steps = [name.split("(", 1)[0].strip() for name in self.llm_steps]
-
-    def is_enabled_step(self, step_name: str) -> bool:
-        return step_name in self._steps
-
-    def is_llm_step(self, step_name: str) -> bool:
-        return step_name in self._llm_steps
-
-
-class SummaryConfig(ConfigNode):
-    quotes: list[str]
-    quotes_files: list[str]
-
-
 class ErrorConfig(ConfigNode):
     keywords: list[str]
     custom_msg: str
     forward_umo: str
 
 
-class BlockConfig(ConfigNode):
-    timeout: int
-    block_reread: bool
-    block_words: list[str]
-
-
-class AtConfig(ConfigNode):
-    at_str: bool
-    at_prob: float
-
-
-class CleanConfig(ConfigNode):
-    text_threshold: int
-    bracket: bool
-    parenthesis: bool
-    emotion_tag: bool
-    emoji: bool
-    lead: list[str]
-    tail: list[str]
-    punctuation: str
-
-
-class ReplaceConfig(ConfigNode):
-    words: list[str]
-    default_new_word: str
-
-
-class FaceConfig(ConfigNode):
-    custom_mapping: list[str]
-
-
-class TTSConfig(ConfigNode):
-    group_id: str
-    character_id: str
-    tts_provider_id: str
-    threshold: int
-    prob: float
-
-
-class T2IConfig(ConfigNode):
-    threshold: int
-    pillowmd_style_dir: str
-    auto_page: bool
-    clean_cache: bool
-
-
 class ReplyConfig(ConfigNode):
     threshold: int
     include_at: bool
+    only_llm: bool
 
 
-class ForwardConfig(ConfigNode):
-    threshold: int
-    node_name: str
-
-
-class RecallConfig(ConfigNode):
-    keywords: list[str]
-    delay: int
-
-
-class SplitConfig(ConfigNode):
-    max_length: int
-    char_list: list[str]
-    max_count: int
-    per_char_delay: float
-    delay_scope_str: str
-    show_typing: bool
-    tail_punc: list[str]
-
-    def __init__(self, data: MutableMapping[str, Any]):
-        super().__init__(data)
-        # 编译好的拆分正则
-        self._split_pattern = self._build_split_pattern()
-        self.split_re = re.compile(self._split_pattern)
-        self.split_priority = self._build_split_priority()
-        # 段尾标点清理正则
-        if self.tail_punc:
-            chars = re.escape("".join(self.tail_punc))
-            self.tail_punc_re = re.compile(f"[{chars}]+$")
-        else:
-            self.tail_punc_re = None
-        # 停顿时间范围
-        try:
-            self.min_delay, self.max_delay = map(float, self.delay_scope_str.split("~"))
-        except Exception:
-            self.min_delay, self.max_delay = 1, 20
-
-    def _build_split_pattern(self) -> str:
-        if not self.char_list:
-            return r"(?!x)x"
-        tokens: list[str] = []
-        for ch in self.char_list:
-            if ch == "\n" or (len(ch) > 1 and ch.lstrip("\\") == "n"):
-                tokens.append("\n")
-            elif ch == " " or (len(ch) > 1 and ch.lstrip("\\") == "s"):
-                tokens.append(r"\s")
-            else:
-                tokens.append(re.escape(ch))
-        return f"[{''.join(tokens)}]+"
-
-    def _build_split_priority(self) -> dict[str, int]:
-        priority: dict[str, int] = {}
-        for idx, ch in enumerate(self.char_list):
-            if ch == "\n" or (len(ch) > 1 and ch.lstrip("\\") == "n"):
-                priority.setdefault("\n", idx)
-            elif ch == " " or (len(ch) > 1 and ch.lstrip("\\") == "s"):
-                priority.setdefault(" ", idx)
-            else:
-                priority.setdefault(ch, idx)
-        return priority
-
-
-class TypoConfig(ConfigNode):
-    error_rate: float
-    tone_error_rate: float
-    word_replace_rate: float
-    correction_append_prob: float
+class MarkdownConfig(ConfigNode):
+    skip_native_split: bool
+    platforms: list[str]
 
 
 class PluginConfig(ConfigNode):
-    pipeline: PipelineConfig
-    summary: SummaryConfig
     error: ErrorConfig
-    block: BlockConfig
-    at: AtConfig
-    clean: CleanConfig
-    replace: ReplaceConfig
-    face: FaceConfig
-    typo: TypoConfig
-    tts: TTSConfig
-    t2i: T2IConfig
     reply: ReplyConfig
-    forward: ForwardConfig
-    recall: RecallConfig
-    split: SplitConfig
-
-    _plugin_name: str = "astrbot_plugin_outputpro"
+    markdown: MarkdownConfig
 
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
         self.admins_id: list[str] = context.get_config().get("admins_id", [])
-        self.data_dir = Path(get_astrbot_plugin_data_path()) / self._plugin_name

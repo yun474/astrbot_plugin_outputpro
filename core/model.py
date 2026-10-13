@@ -1,4 +1,4 @@
-from collections import OrderedDict, deque
+from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -12,14 +12,10 @@ from astrbot.core.platform.astr_message_event import AstrMessageEvent
 class GroupState(BaseModel):
     gid: str
     """群号"""
-    bot_msgs: deque = Field(default_factory=lambda: deque(maxlen=5))
-    """Bot消息缓存"""
     msg_queue: deque[str] = Field(default_factory=lambda: deque(maxlen=10))
     """用户消息缓存"""
     last_reply_mark_msg_id: str | None = None
     """最近一次追加 bot 插嘴标记对应的消息 ID（用于去重）"""
-    name_to_qq: OrderedDict[str, str] = Field(default_factory=lambda: OrderedDict())
-    """昵称 -> QQ"""
 
 
 class StateManager:
@@ -49,22 +45,9 @@ class OutContext:
     timestamp: int
 
 
-
 class StepName(str, Enum):
-    SUMMARY = "summary"
     ERROR = "error"
-    BLOCK = "block"
-    AT = "at"
-    CLEAN = "clean"
-    REPLACE = "replace"
-    FACE = "face"
-    TYPO = "typo"
-    TTS = "tts"
-    T2I = "t2i"
     REPLY = "reply"
-    FORWARD = "forward"
-    RECALL = "recall"
-    SPLIT = "split"
 
 
 @dataclass(slots=True)

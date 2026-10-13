@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## v3.0.0
+
+> 自本版本起为 [yun474/astrbot_plugin_outputpro](https://github.com/yun474/astrbot_plugin_outputpro) 维护的精简 fork，以下更早的记录来自原仓库。
+
+不兼容变更：
+
+- 仅保留「报错处理（error）」与「智能引用（reply）」，移除图片外显、消息拦截、解析艾特、文本清洗、文本替换、表情映射、错字模拟、文转语音、文转图片、合并转发、自动撤回、分段回复，以及 `pipeline` 配置项与相关依赖。
+- 智能引用新增「仅对 LLM 回复生效（only_llm）」开关，替代原 `pipeline.llm_steps` 中的对应勾选，默认开启。
+
+新增特性：
+
+- 智能引用适配 QQ 官方机器人（qq_official / qq_official_webhook）：读取消息的 `REFIDX_` 引用 ID，发送时携带官方 `message_reference`，客户端显示引用气泡；AstrBot 已原生支持时自动让位，不重复引用。
+- 新增「Markdown 保护（markdown）」：消息会被渲染为 Markdown 时自动跳过 AstrBot 原生分段回复，避免代码块、列表、表格被切碎。
+
+错误修复：
+
+- 报错处理替换消息后，智能引用改为作用于替换后的提示消息。
+
 ## v2.2.9
 
 错误修复：

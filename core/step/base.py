@@ -34,5 +34,9 @@ class BaseStep(ABC):
         """
         ...  # 子类必须覆盖此处
 
+    def enabled(self, ctx: OutContext) -> bool:
+        """当前消息是否需要执行本步骤，子类按需覆盖"""
+        return True
+
     async def initialize(self) -> None: ...
     async def terminate(self) -> None: ...

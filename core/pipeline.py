@@ -4,77 +4,23 @@ from astrbot.api import logger
 
 from .config import PluginConfig
 from .model import OutContext
-from .step import (
-    AtStep,
-    BaseStep,
-    BlockStep,
-    CleanStep,
-    ErrorStep,
-    FaceStep,
-    ForwardStep,
-    RecallStep,
-    ReplaceStep,
-    ReplyStep,
-    SplitStep,
-    SummaryStep,
-    T2IStep,
-    TypoStep,
-    TTSStep,
-)
+from .step import BaseStep, ErrorStep, ReplyStep
 
 
 class Pipeline:
     """
-    生产级 Pipeline：
+    输出管道：
 
-    - 构建 step 实例
+    - 按固定顺序构建 step 实例（报错处理 → 智能引用）
     - 统一 initialize / terminate
     - 对外唯一接口：run
     """
 
-    # 默认顺序
-    STEP_REGISTRY: list[tuple[str, type[BaseStep]]] = [
-        ("summary", SummaryStep),
-        ("error", ErrorStep),
-        ("block", BlockStep),
-        ("at", AtStep),
-        ("clean", CleanStep),
-        ("replace", ReplaceStep),
-        ("face", FaceStep),
-        ("typo", TypoStep),
-        ("tts", TTSStep),
-        ("t2i", T2IStep),
-        ("reply", ReplyStep),
-        ("forward", ForwardStep),
-        ("recall", RecallStep),
-        ("split", SplitStep),
-    ]
+    STEP_CLASSES: list[type[BaseStep]] = [ErrorStep, ReplyStep]
 
     def __init__(self, config: PluginConfig):
         self.plugin_config = config
-        self.cfg = config.pipeline
-        self._steps: list[BaseStep] = []
-
-        self._build_steps()
-
-    def _build_steps(self) -> None:
-        """
-        根据配置构建步骤实例（默认顺序或自定义顺序）
-        """
-        if self.cfg.lock_order:
-            for name, cls in self.STEP_REGISTRY:
-                if name in self.cfg._steps:
-                    step = cls(self.plugin_config)
-                    self._steps.append(step)
-        else:
-            step_map = dict(self.STEP_REGISTRY)
-            for name in self.cfg._steps:
-                cls = step_map.get(name)
-                if not cls:
-                    logger.warning(f"未知的步骤: {name}")
-                    continue
-                step = cls(self.plugin_config)
-                self._steps.append(step)
+        self._steps: list[BaseStep] = [cls(config) for cls in self.STEP_CLASSES]
 
     # =================== Lifecycle =======================
 
@@ -90,15 +36,12 @@ class Pipeline:
 
     # ==================== run =====================
 
-    def _llm_allow(self, step: BaseStep, is_llm: bool) -> bool:
-        return not self.cfg.is_llm_step(step.name) or is_llm
-
     async def run(self, ctx: OutContext) -> bool:
         """
         运行 pipeline
         """
         for step in self._steps:
-            if not self._llm_allow(step, ctx.is_llm):
+            if not step.enabled(ctx):
                 continue
 
             result = await step.handle(ctx)

@@ -89,7 +89,11 @@ class ErrorStep(BaseStep):
             forward_msg = await self._forward_to_admin(ctx, error_report)
             msg += f"，{forward_msg}"
 
-        ctx.event.set_result(ctx.event.plain_result(self.cfg.custom_msg))
+        new_result = ctx.event.plain_result(self.cfg.custom_msg)
+        ctx.event.set_result(new_result)
+        # 同步上下文，后续步骤（如智能引用）作用于替换后的消息
+        ctx.chain = new_result.chain
+        ctx.plain = self.cfg.custom_msg
         msg += f"，原消息替换为 {self.cfg.custom_msg}"
 
         return StepResult(msg=msg)
